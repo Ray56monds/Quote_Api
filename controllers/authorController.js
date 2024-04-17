@@ -1,89 +1,108 @@
-import { PrismaClient } from "@prisma/client";
-import { StatusCodes } from "http-status-codes";
-
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 
-const getAllAuthors = async (req, res) => {
+dotenv.config();
+
+export const getAllAuthors = async (req, res) => {
+  const { user } = req;
+  if (user.role !== 'ADMIN') {
+    return res.status(403).json({ message: 'Unauthorized' });
+  }
   try {
-    const authorsData = await prisma.author.findMany();
-    return res.status(StatusCodes.OK).json(authorsData);
+    const authors = await prisma.user.findMany();
+    return res.status(200).json(authors);
   } catch (error) {
-    await prisma.$disconnect();
-    res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Error getting authors", error });
+    return res.status(500).json({ message: 'Error getting authors' });
   }
 };
 
-const getAuthor = async (req, res) => {
+export const getAuthor = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Please provide Author ID!" });
-    return;
-  }
   try {
-    const author = await prisma.author.findUnique({
+    const author = await prisma.user.findUnique({
       where: { id: Number(id) },
     });
-    return res.status(StatusCodes.OK).json(author);
+    if (!author) {
+      return res.status(404).json({ message: 'Author not found' });
+    }
+    return res.status(200).json(author);
   } catch (error) {
-    await prisma.$disconnect();
-    res.status(StatusCodes.NOT_FOUND).json({ msg: "Author not Found!" });
+    return res.status(500).json({ message: 'Error getting author' });
   }
 };
 
-const updateAuthor = async (req, res) => {
-  const { id } = req.params;
-  const { name } = req.body;
-  if (!id || !name) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Please provide Author ID and Name!" });
-  }
+export const createAuthor = async (req, res) => {
+  const { email, password, role } = req.body;
   try {
-    const author = await prisma.author.update({
-      where: { id: Number(id) },
+    const hashedPassword = bcrypt.hashSync(password, 8);
+    const newAuthor = await prisma.user.create({
       data: {
-        name: name,
+        email,
+        password: hashedPassword,
+        role: role || 'USER',
       },
     });
-    return res.status(StatusCodes.OK).json(author);
+    const token = jwt.sign(
+      {
+        id: newAuthor.id,
+        email: newAuthor.email,
+        role: newAuthor.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    return res.status(201).json({ author: newAuthor, token });
   } catch (error) {
-    await prisma.$disconnect();
-    return res.status(StatusCodes.NOT_MODIFIED).json({ error });
+    return res.status(500).json({ message: 'Error creating author' });
   }
 };
 
-const createAuthor = async (req, res) => {
-  if (!req.body.name) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Author Name not provided!" });
-  }
-  try {
-    const newAuthor = await prisma.author.create({
-      data: req.body,
-    });
-    return res.status(StatusCodes.CREATED).json(newAuthor);
-  } catch (error) {
-    await prisma.$disconnect();
-    return res.status(StatusCodes.BAD_REQUEST).json(error);
-  }
-};
-
-const deleteAuthor = async (req, res) => {
+export const updateAuthor = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Please provide Author ID!" });
+  const { email, password, role } = req.body;
+  try {
+    const author = await prisma.user.findUnique({
+      where: { id: Number(id) },
+    });
+    if (!author) {
+      return res.status(404).json({ message: 'Author not found' });
+    }
+    if (email) {
+      author.email = email;
+    }
+    if (password) {
+      author.password = bcrypt.hashSync(password, 8);
+    }
+    if (role) {
+      author.role = role;
+    }
+    const updatedAuthor = await prisma.user.update({
+      where: { id: Number(id) },
+      data: author,
+    });
+    return res.status(200).json(updatedAuthor);
+  } catch (error) {
+    return res.status(500).json({ message: 'Error updating author' });
   }
-  const author = await prisma.author.delete({
-    where: { id: Number(id) },
-  });
-  return res.status(StatusCodes.NO_CONTENT).json(author);
 };
 
-export { getAllAuthors, getAuthor, createAuthor, updateAuthor, deleteAuthor };
+export const deleteAuthor = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const author = await prisma.user.findUnique({
+      where: { id: Number(id) },
+    });
+    if (!author) {
+      return res.status(404).json({ message: 'Author not found' });
+    }
+    await prisma.user.delete({
+      where: { id: Number(id) },
+    });
+    return res.status(204).json({ message: 'Author deleted' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error deleting author' });
+  }
+};

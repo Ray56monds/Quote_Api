@@ -1,90 +1,91 @@
 import { PrismaClient } from "@prisma/client";
+import verifyToken from "../middleware/verifyToken.js";
 import { StatusCodes } from "http-status-codes";
 
 const prisma = new PrismaClient();
 
-const getAllQuotes = async (req, res) => {
-  try {
-    const quotesData = await prisma.quote.findMany();
-    return res.status(StatusCodes.OK).json(quotesData);
-  } catch (error) {
-    await prisma.$disconnect();
-    res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Error getting quotes", error });
-  }
-};
-
 const getQuote = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Please provide Quote ID!" });
-    return;
-  }
   try {
-    // Query the database.
     const quote = await prisma.quote.findUnique({
       where: { id: Number(id) },
     });
+    if (!quote) {
+      return res.sendStatus(StatusCodes.NOT_FOUND);
+    }
     return res.status(StatusCodes.OK).json(quote);
   } catch (error) {
-    await prisma.$disconnect();
-    res.status(StatusCodes.NOT_FOUND).json({ msg: "Quote not Found!" });
+    return res.sendStatus(StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
+
+const getAllQuotes = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const quotes = await prisma.quote.findMany({
+      where: { author: { id: Number(id) } },
+    });
+    if (!quotes) {
+      return res.sendStatus(StatusCodes.NOT_FOUND);
+    }
+    return res.status(StatusCodes.OK).json(quotes);
+  } catch (error) {
+    return res.sendStatus(StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+};
+
+const createQuote = async (req, res) => {
+  const { quote, authorId } = req.body;
+  try {
+    const newQuote = await prisma.quote.create({
+      data: {
+        quote,
+        author: {
+          connect: { id: authorId },
+        },
+      },
+    });
+    return res.status(StatusCodes.CREATED).json(newQuote);
+  } catch (error) {
+    return res.sendStatus(StatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
 
 const updateQuote = async (req, res) => {
   const { id } = req.params;
-  const { text } = req.body;
-  if (!id || !text) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Please provide Quote ID and Text!" });
-  }
+  const { quote, authorId } = req.body;
   try {
-    const quote = await prisma.quote.update({
+    const updatedQuote = await prisma.quote.update({
       where: { id: Number(id) },
       data: {
-        text: text,
+        quote,
+        author: {
+          connect: { id: authorId },
+        },
       },
     });
-    return res.status(StatusCodes.OK).json(quote);
+    if (!updatedQuote) {
+      return res.sendStatus(StatusCodes.NOT_FOUND);
+    }
+    return res.status(StatusCodes.OK).json(updatedQuote);
   } catch (error) {
-    await prisma.$disconnect();
-    return res.status(StatusCodes.NOT_MODIFIED).json({ error });
-  }
-};
-
-const createQuote = async (req, res) => {
-  if (!req.body.text) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: " Quote Text not provided!" });
-  }
-  try {
-    const newQuote = await prisma.quote.create({
-      data: req.body,
-    });
-    return res.status(StatusCodes.CREATED).json(newQuote);
-  } catch (error) {
-    await prisma.$disconnect();
-    return res.status(StatusCodes.BAD_REQUEST).json(error);
+    return res.sendStatus(StatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
 
 const deleteQuote = async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ msg: "Please provide Quote ID!" });
+  try {
+    const deletedQuote = await prisma.quote.delete({
+      where: { id: Number(id) },
+    });
+    if (!deletedQuote) {
+      return res.sendStatus(StatusCodes.NOT_FOUND);
+    }
+    return res.sendStatus(StatusCodes.NO_CONTENT);
+  } catch (error) {
+    return res.sendStatus(StatusCodes.INTERNAL_SERVER_ERROR);
   }
-  const quote = await prisma.quote.delete({
-    where: { id: Number(id) },
-  });
-  return res.status(StatusCodes.NO_CONTENT).json(quote);
 };
 
-export { getAllQuotes, getQuote, createQuote, updateQuote, deleteQuote };
+export { getQuote, getAllQuotes, createQuote, updateQuote, deleteQuote, verifyToken };

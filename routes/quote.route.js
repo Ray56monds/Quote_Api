@@ -1,12 +1,19 @@
 import express from "express";
-import { getAllQuotes, getQuote, createQuote, updateQuote, deleteQuote } from "../controllers/quoteController.js";
+import {
+  getQuote,
+  getAllQuotes,
+  createQuote,
+  updateQuote,
+  deleteQuote,
+} from "../controllers/quoteController.js";
+import verifyToken from "../middleware/verifyToken.js";
 
 const router = express.Router();
 
-router.get("/", getAllQuotes);
-router.get("/:id", getQuote);
-router.post("/", createQuote);
-router.put("/:id", updateQuote);
-router.delete("/:id", deleteQuote);
+router.get("/:id", verifyToken, getQuote);
+router.get("/", verifyToken, getAllQuotes);
+router.post("/", verifyToken, createQuote);
+router.put("/:id", verifyToken, updateQuote);
+router.delete("/:id", verifyToken, deleteQuote);
 
 export default router;
