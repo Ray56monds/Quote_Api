@@ -1,19 +1,12 @@
 import express from "express";
-import {
-  getAllAuthors,
-  getAuthor,
-  createAuthor,
-  updateAuthor,
-  deleteAuthor,
-} from "../controllers/authorController.js";
-import verifyToken from "../middleware/verifyToken.js";
+import { getAllAuthors, getAuthor, createAuthor, updateAuthor, deleteAuthor } from '../controllers/authorController.js';
 
 const router = express.Router();
 
 router.get("/", getAllAuthors);
 router.get("/:id", getAuthor);
-router.post("/", verifyToken, createAuthor);
-router.put("/:id", verifyToken, updateAuthor);
-router.delete("/:id", verifyToken, deleteAuthor);
+router.post("/", createAuthor);
+router.put("/:id", updateAuthor);
+router.delete("/:id", deleteAuthor);
 
-export default router;
+export default router

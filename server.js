@@ -1,28 +1,31 @@
 import express from 'express';
-import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
+import authRoute from './routes/auth.route.js';
+import authorRoute from './routes/author.route.js';
+import quoteRoute from './routes/quote.route.js';
 import { PrismaClient } from '@prisma/client';
-import { router as authorRouter } from './routes/author.route.js';
-import { router as quoteRouter } from './routes/quote.route.js';
-import { router as authRouter } from './routes/auth.route.js';
-import { verifyToken } from './middlewares/verifyToken.js';
 
+// Load environment variables from .env file
 dotenv.config();
+
+// Initialize Prisma client
 const prisma = new PrismaClient();
+
+// Initialize Express app
 const app = express();
 
 // Middleware
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(morgan('dev'));
 
 // Routes
-app.use('/api/authors', verifyToken, authorRouter);
-app.use('/api/quotes', verifyToken, quoteRouter);
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authRoute);
+app.use('/api/authors', authorRoute);
+app.use('/api/quotes', quoteRoute);
 
-// Start the server
-const PORT = process.env.PORT || 3000;
+// Start server
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

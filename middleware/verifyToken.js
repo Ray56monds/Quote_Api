@@ -14,3 +14,5 @@ export const verifyToken = (req, res, next) => {
     return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Unauthorized' });
   }
 };
+
+export default {verifyToken};
