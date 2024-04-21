@@ -1,28 +1,25 @@
 import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
+const prisma = new PrismaClient();
 export const getAllAuthors = async (req, res) => {
-  const { user } = req;
-  if (user.role !== 'ADMIN') {
-    return res.status(403).json({ message: 'Unauthorized' });
-  }
+   // if (user.role !== 'ADMIN') {
+  //   return res.status(403).json({ message: 'Unauthorized' });
+  // }
   try {
-    const authors = await prisma.user.findMany();
+    const authors = await prisma.author.findMany();
     return res.status(200).json(authors);
   } catch (error) {
-    return res.status(500).json({ message: 'Error getting authors' });
+    return res.status(500).json({ error,message: 'Error getting authors' });
   }
 };
 
 export const getAuthor = async (req, res) => {
   const { id } = req.params;
   try {
-    const author = await prisma.user.findUnique({
+    const author = await prisma.author.findUnique({
       where: { id: Number(id) },
     });
     if (!author) {
@@ -35,28 +32,22 @@ export const getAuthor = async (req, res) => {
 };
 
 export const createAuthor = async (req, res) => {
-  const { email, password, role } = req.body;
   try {
-    const hashedPassword = bcrypt.hashSync(password, 8);
-    const newAuthor = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role: role || 'USER',
-      },
+    const newAuthor = await prisma.author.create({
+      data: req.body
     });
-    const token = jwt.sign(
-      {
-        id: newAuthor.id,
-        email: newAuthor.email,
-        role: newAuthor.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-    return res.status(201).json({ author: newAuthor, token });
+    // const token = jwt.sign(
+    //   {
+    //     id: newAuthor.id,
+    //     email: newAuthor.email,
+    //     role: newAuthor.role,
+    //   },
+    //   process.env.JWT_SECRET,
+    //   { expiresIn: '1h' }
+    // );
+    return res.status(201).json({ author: newAuthor });
   } catch (error) {
-    return res.status(500).json({ message: 'Error creating author' });
+    return res.status(500).json({ error,message: 'Error creating author' });
   }
 };
 
@@ -64,7 +55,7 @@ export const updateAuthor = async (req, res) => {
   const { id } = req.params;
   const { email, password, role } = req.body;
   try {
-    const author = await prisma.user.findUnique({
+    const author = await prisma.author.findUnique({
       where: { id: Number(id) },
     });
     if (!author) {
@@ -79,7 +70,7 @@ export const updateAuthor = async (req, res) => {
     if (role) {
       author.role = role;
     }
-    const updatedAuthor = await prisma.user.update({
+    const updatedAuthor = await prisma.author.update({
       where: { id: Number(id) },
       data: author,
     });
@@ -92,13 +83,13 @@ export const updateAuthor = async (req, res) => {
 export const deleteAuthor = async (req, res) => {
   const { id } = req.params;
   try {
-    const author = await prisma.user.findUnique({
+    const author = await prisma.author.findUnique({
       where: { id: Number(id) },
     });
     if (!author) {
       return res.status(404).json({ message: 'Author not found' });
     }
-    await prisma.user.delete({
+    await prisma.author.delete({
       where: { id: Number(id) },
     });
     return res.status(204).json({ message: 'Author deleted' });
