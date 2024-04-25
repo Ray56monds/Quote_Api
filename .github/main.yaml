@@ -39,7 +39,8 @@ on:
         run: npx prisma migrate dev --name init --create-db
 
       - name: Run test with coverage
-        run: 
-          npm run test
-          npm run coverage
+  run: |
+    npm run test
+    npm run coverage
+
 
