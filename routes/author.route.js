@@ -22,4 +22,4 @@ authorRoute.put('/:id', jwtAuth, isUserORAdmin, validateUpdateReqAuthor, asyncHa
 // Route to delete an author, protected by isAdmin middleware and jwtAuth middleware
 authorRoute.delete('/:id', isAdmin, jwtAuth, asyncHandler(deleteAuthor));
 
-export default Router
+export default authorRoute

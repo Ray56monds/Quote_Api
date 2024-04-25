@@ -50,7 +50,7 @@ export const getAuthor = async (req, res) => {
  * @param {object} res - Response object
  * @returns {object} - JSON response with the new author
  */
-const createAuthor = async (req, res) => {
+export const createAuthor = async (req, res) => {
   try {
     const newAuthor = await prisma.author.create({
       data: req.body
