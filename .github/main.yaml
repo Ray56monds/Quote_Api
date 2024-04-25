@@ -1,0 +1,45 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ test ]
+  pull_request:
+    branches: [ main ]
+
+  jobs:
+   setup-db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 1234
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "v20.11.1"
+      # Install dependencies and run tests on Ubuntu
+      - name: Install dependencies
+        run: npm CI
+
+      - name: Run Prisma migrate dev
+        env:
+          DATABASE_URL: postgresql://postgres:1234@localhost:5432/postgres
+        run: npx prisma migrate dev --name init --create-db
+
+      - name: Run test with coverage
+        run: 
+          npm run test
+          npm run coverage
+
