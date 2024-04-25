@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
-import jsonwebtoken from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 
@@ -50,7 +50,7 @@ export const getAuthor = async (req, res) => {
  * @param {object} res - Response object
  * @returns {object} - JSON response with the new author
  */
-export const createAuthor = async (req, res) => {
+const createAuthor = async (req, res) => {
   try {
     const newAuthor = await prisma.author.create({
       data: req.body
@@ -116,7 +116,22 @@ export const deleteAuthor = async (req, res) => {
  */
 export const createUser = async (req, res) => {
   const { email, password, role } = req.body;
+  
+  // Validate input
+  if (!email || !password) {
+    return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Email and password are required' });
+  }
+  
   try {
+    // Check if the user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: 'User already exists' });
+    }
+
+    // Create the new user
     const newUser = await prisma.user.create({
       data: {
         email,
@@ -124,11 +139,15 @@ export const createUser = async (req, res) => {
         role: role || 'USER',
       },
     });
+
+    // Generate token
     const token = jwt.sign({ id: newUser.id, role: newUser.role }, process.env.JWT_SECRET, {
-      expiresIn: '1h',
+      expiresIn: process.env.JWT_EXPIRY || '1h',
     });
+
     return res.status(StatusCodes.CREATED).json({ user: newUser, token });
   } catch (error) {
+    console.error('Error creating user:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error creating user' });
   }
 };
@@ -141,22 +160,31 @@ export const createUser = async (req, res) => {
  */
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
+
   try {
+    // Find the user by email
     const user = await prisma.user.findUnique({
       where: { email },
     });
     if (!user) {
       return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid email or password' });
     }
+
+    // Compare passwords
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid email or password' });
     }
+
+    // Generate token
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1h',
+      expiresIn: process.env.JWT_EXPIRY || '1h',
     });
+
     return res.status(StatusCodes.OK).json({ user, token });
   } catch (error) {
+    console.error('Error logging in:', error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error logging in' });
   }
 };
+
