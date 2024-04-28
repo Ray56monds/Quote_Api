@@ -14,16 +14,8 @@ const jwtAuth = (req, res, next) => {
     });
   }
 
-  const tokenParts = token.split(' ');
+  const jwtToken = token.split(' ')[1];
 
-  if (tokenParts.length !== 2 || tokenParts[0] !== 'Bearer') {
-    return res.status(StatusCodes.UNAUTHORIZED).json({
-      message: 'Invalid token format.',
-      error: 'INVALID_TOKEN_FORMAT'
-    });
-  }
-
-  const jwtToken = tokenParts[1];
 
   jwt.verify(jwtToken, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {

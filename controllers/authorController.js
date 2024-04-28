@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -45,23 +45,6 @@ export const getAuthor = async (req, res) => {
 };
 
 /**
- * Create a new author
- * @param {object} req - Request object
- * @param {object} res - Response object
- * @returns {object} - JSON response with the new author
- */
-export const createAuthor = async (req, res) => {
-  try {
-    const newAuthor = await prisma.author.create({
-      data: req.body
-    });
-return res.status(StatusCodes.CREATED).json({ author: newAuthor });
-  } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error, message: 'Error creating author' });
-  }
-};
-
-/**
  * Update an existing author
  * @param {object} req - Request object
  * @param {object} res - Response object
@@ -97,60 +80,45 @@ export const deleteAuthor = async (req, res) => {
       where: { id: Number(id) },
     });
     if (!author) {
-      return res.status(StatusCodes.NOT_FOUND).json({ message: 'Author not found' });
+      res.status(StatusCodes.NOT_FOUND).json({ message: 'Author not found' });
     }
     await prisma.author.delete({
       where: { id: Number(id) },
     });
-    return res.status(StatusCodes.NO_CONTENT).json({ message: 'Author deleted' });
+    res.status(StatusCodes.ACCEPTED).json({ message: 'Author deleted' });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error deleting author' });
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error deleting author' });
   }
 };
 
 /**
- * Create a new user
+ * Create a new author
  * @param {object} req - request object
  * @param {object} res - response object
  * @returns {object} - JSON response with the new user
  */
-export const createUser = async (req, res) => {
-  const { email, password, role } = req.body;
-  
-  // Validate input
-  if (!email || !password) {
-    return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Email and password are required' });
-  }
-  
+export const registerUser = async (req, res) => {
   try {
-    // Check if the user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-    if (existingUser) {
-      return res.status(StatusCodes.BAD_REQUEST).json({ message: 'User already exists' });
-    }
-
-    // Create the new user
-    const newUser = await prisma.user.create({
+    // Hash the password
+    console.log(req.body);
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    // Create a new user
+    const user = await prisma.author.create({
       data: {
-        email,
-        password: await bcrypt.hash(password, 10),
-        role: role || 'USER',
+        name: req.body.name,
+        password: hashedPassword,
+        email: req.body.email,
+        age: +req.body.age,
+        role: req.body.role
       },
     });
-
-    // Generate token
-    const token = jwt.sign({ id: newUser.id, role: newUser.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRY || '1h',
-    });
-
-    return res.status(StatusCodes.CREATED).json({ user: newUser, token });
-  } catch (error) {
-    console.error('Error creating user:', error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error creating user' });
+    res.status(StatusCodes.CREATED).json({message: 'User Registered', user });
+}
+  catch (error) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error, message: 'Error creating user' });
   }
 };
+
 
 /**
  * Login a user
@@ -158,33 +126,18 @@ export const createUser = async (req, res) => {
  * @param {object} res - response object
  * @returns {object} - JSON response with the new user
  */
+
 export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
   try {
-    // Find the user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-    if (!user) {
-      return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid email or password' });
-    }
-
-    // Compare passwords
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid email or password' });
-    }
-
-    // Generate token
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRY || '1h',
-    });
-
-    return res.status(StatusCodes.OK).json({ user, token });
+    console.log('loginUser', req.body);
+    const { email, password } = req.body;
+    const user = await prisma.author.findUnique({ where: { email } }); 
+    if (!user) throw new Error('User not found');
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw new Error('Incorrect password');
+    const token = jwt.sign({ id: user.id, email: user.email, role:user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    return res.status(StatusCodes.OK).json({ message: 'Login Successful', token });
   } catch (error) {
-    console.error('Error logging in:', error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error logging in' });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error, message: 'Error logging in' });
   }
 };
-
